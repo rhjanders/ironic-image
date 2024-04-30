@@ -25,9 +25,7 @@ python3-eventlet
 python3-flask
 python3-futurist
 python3-glanceclient
-python3-gunicorn
 python3-ironic-lib
-python3-ironic-prometheus-exporter
 python3-ironicclient
 python3-jinja2
 python3-keystoneauth1
