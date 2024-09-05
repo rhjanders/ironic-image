@@ -44,7 +44,7 @@ if  [[ -f /tmp/main-packages-list.ocp ]]; then
     # NOTE(janders): adding --no-compile option to avoid issues in FIPS
     # enabled environments. See https://issues.redhat.com/browse/RHEL-29028
     # for more information
-    PIP_OPTIONS="--no-compile"
+    PIP_OPTIONS="--no-compile --no-cache-dir"
     if [[ ! -d "${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps" ]]; then
         PIP_OPTIONS="$PIP_OPTIONS --no-index"
     fi
