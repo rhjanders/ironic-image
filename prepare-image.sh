@@ -36,7 +36,10 @@ if  [[ -f /tmp/main-packages-list.ocp ]]; then
     ### source install ###
     BUILD_DEPS="python3-devel gcc gcc-c++"
 
-    dnf install -y python3-pip python3-setuptools $BUILD_DEPS
+    # NOTE(elfosardo): wheel is needed because of pip "no-build-isolation" option
+    # setting installation of setuptoools here as we may want to remove it
+    # in teh future once the container build is done
+    dnf install -y python3-pip python3-wheel 'python3-setuptools >= 64.0.0' $BUILD_DEPS
 
     # NOTE(elfosardo): --no-index is used to install the packages emulating
     # an isolated environment in CI. Do not use the option for downstream
@@ -44,7 +47,12 @@ if  [[ -f /tmp/main-packages-list.ocp ]]; then
     # NOTE(janders): adding --no-compile option to avoid issues in FIPS
     # enabled environments. See https://issues.redhat.com/browse/RHEL-29028
     # for more information
-    PIP_OPTIONS="--no-compile --no-cache-dir"
+    # NOTE(elfosardo): --no-build-isolation is needed to allow build engine
+    # to use build tools already installed in the system, for our case
+    # setuptools and pbr, instead of installing them in the isolated
+    # pip environment. We may change this in the future and just use
+    # full isolated environment and source build dependencies.
+    PIP_OPTIONS="--no-compile --no-cache-dir --no-build-isolation"
     if [[ ! -d "${REMOTE_SOURCES_DIR}/cachito-gomod-with-deps" ]]; then
         PIP_OPTIONS="$PIP_OPTIONS --no-index"
     fi
