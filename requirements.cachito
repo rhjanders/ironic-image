@@ -1,5 +1,5 @@
-ironic @ git+https://github.com/openshift/openstack-ironic@9a3a76263cb2d4d81587daee183764b5e8ccd7ed
-ironic-lib @ git+https://github.com/openshift/openstack-ironic-lib@7045590c0aedba8dbdb43f0eb6c991575f75cbf8
-sushy @ git+https://github.com/openshift/openstack-sushy@f66d0aeb6d016c4a5606c1f8439adaec96bbb501
+ironic @ git+https://github.com/openshift/openstack-ironic@03d98373b42d68711ff82cc32892df6ee9769778
+ironic-lib @ git+https://github.com/openshift/openstack-ironic-lib@98d92395f5ceaa064515765eaeada6b584f7b5ad
+sushy @ git+https://github.com/openshift/openstack-sushy@8ce37f8966ca310357ea89f6431c0f2ae912c7e6
 
 # DEPENDENCIES
