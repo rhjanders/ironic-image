@@ -109,6 +109,20 @@ MariaDB configuration:
    Deprecated. Instead, mount a secret with `password` (optionally with a
    `username`) under `/auth/mariadb` mount point.
 
+MariaDB configuration:
+
+- `IRONIC_USE_MARIADB` - Whether to use an external MariaDB database instead of
+  a local SQLite file (default `false`)
+- `MARIADB_HOST` - Host name with an optional port of the MariaDB database
+  instance (must be provided if `IRONIC_USE_MARIADB` is `true`)
+- `MARIADB_DATABASE` - Database name to use (default `ironic`)
+- `MARIADB_USER` - User name to use when connecting to the database (default
+  `ironic`). The user must have privileges to create and update tables.
+  Can be provided via a secret mounted under `/auth/mariadb`.
+- `MARIADB_PASSWORD` - The database password.
+   Deprecated. Instead, mount a secret with `password` (optionally with a
+   `username`) under `/auth/mariadb` mount point.
+
 The ironic configuration can be overridden by various environment variables.
 The following can serve as an example:
 
