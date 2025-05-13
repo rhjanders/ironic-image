@@ -3,6 +3,5 @@ sushy @ git+https://github.com/openshift/openstack-sushy@48e0e7c88634b1c59772ab7
 
 proliantutils===2.16.3
 python-scciclient===0.17.0
-sushy-oem-idrac===6.0.0
 
 # DEPENDENCIES
