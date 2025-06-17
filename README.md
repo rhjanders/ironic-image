@@ -120,7 +120,6 @@ The following can serve as an example:
    callback from the ramdisk doing the cleaning
 - `OS_PXE__BOOT_RETRY_TIMEOUT=1200` - timeout (seconds) to enable boot retries.
 
-=======
 ## Using a read-only root filesystem
 
 The ironic-image can operate with a read-only root filesystem. However,
