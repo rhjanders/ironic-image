@@ -53,8 +53,8 @@ functionality:
 - `HTTPD_SERVE_NODE_IMAGES` - used by runhttpd script, controls access
    to the `/shared/html/images` directory via the default virtual host
    `(HTTP_PORT)`.  (default `true`)
-- `DHCP_RANGE` - dhcp range to use for provisioning (default
-   `172.22.0.10-172.22.0.100`)
+- `DHCP_RANGE` - dhcp range to use for provisioning (e.g.
+   `172.22.0.10,172.22.0.100`)
 - `DHCP_HOSTS` - a `;` separated list of `dhcp-host` entries, e.g. known MAC
    addresses like `00:20:e0:3b:13:af;00:20:e0:3b:14:af` (empty by default). For
    more details on `dhcp-host` see
@@ -91,6 +91,23 @@ functionality:
 - `IRONIC_ENABLE_VLAN_INTERFACES` - Which VLAN interfaces to enable on the
   agent start-up. Can be a list of interfaces or a special value `all`.
   Defaults to `all`.
+- `DEPLOY_KERNEL_URL` and `DEPLOY_RAMDISK_URL` provide the default IPA kernel
+  and initramfs images. If they're not set, the images from IPA downloader are
+  used (if present).
+
+MariaDB configuration:
+
+- `IRONIC_USE_MARIADB` - Whether to use an external MariaDB database instead of
+  a local SQLite file (default `false`)
+- `MARIADB_HOST` - Host name with an optional port of the MariaDB database
+  instance (must be provided if `IRONIC_USE_MARIADB` is `true`)
+- `MARIADB_DATABASE` - Database name to use (default `ironic`)
+- `MARIADB_USER` - User name to use when connecting to the database (default
+  `ironic`). The user must have privileges to create and update tables.
+  Can be provided via a secret mounted under `/auth/mariadb`.
+- `MARIADB_PASSWORD` - The database password.
+   Deprecated. Instead, mount a secret with `password` (optionally with a
+   `username`) under `/auth/mariadb` mount point.
 
 The ironic configuration can be overridden by various environment variables.
 The following can serve as an example:
@@ -103,3 +120,14 @@ The following can serve as an example:
    callback from the ramdisk doing the cleaning
 - `OS_PXE__BOOT_RETRY_TIMEOUT=1200` - timeout (seconds) to enable boot retries.
 
+## Using a read-only root filesystem
+
+The ironic-image can operate with a read-only root filesystem. However,
+it needs a few directories to be mounted as writable `emptyDir` volumes:
+
+- `/conf` - location for rendered configuration files
+- `/data` - writable runtime data such as the database
+- `/tmp` - temporary directory
+
+This is in addition to the always required `/shared` volume that is used to
+share runtime data between Ironic and HTTPD.
