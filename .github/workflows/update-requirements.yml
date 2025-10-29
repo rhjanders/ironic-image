@@ -1,0 +1,200 @@
+name: Update requirements.cachito
+
+on:
+  schedule:
+    # Run Monday, Wednesday, Friday at 1 PM UTC
+    - cron: '0 13 * * 1,3,5'
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Force update even if no changes detected'
+        required: false
+        default: false
+        type: boolean
+      target_branch:
+        description: 'Target branch for the PR'
+        required: false
+        default: 'main'
+        type: string
+
+env:
+  # Repositories to track
+  IRONIC_REPO: "openshift/openstack-ironic"
+  SUSHY_REPO: "openshift/openstack-sushy"
+  # Default branches to track
+  IRONIC_BRANCH: "main"
+  SUSHY_BRANCH: "main"
+
+jobs:
+  update-requirements:
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/centos/centos:stream9
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - name: Install dependencies
+      run: |
+        dnf upgrade -y
+        dnf install -y git curl jq sed
+
+    - name: Checkout repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
+
+    - name: Set up Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Get latest commit hashes
+      id: get-commits
+      run: |
+        # Get latest commit hash from ironic repository
+        IRONIC_HASH=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ env.IRONIC_REPO }}/commits/${{ env.IRONIC_BRANCH }}" | \
+          jq -r '.sha')
+
+        # Get latest commit hash from sushy repository
+        SUSHY_HASH=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ env.SUSHY_REPO }}/commits/${{ env.SUSHY_BRANCH }}" | \
+          jq -r '.sha')
+
+        echo "ironic_hash=$IRONIC_HASH" >> $GITHUB_OUTPUT
+        echo "sushy_hash=$SUSHY_HASH" >> $GITHUB_OUTPUT
+
+        echo "Latest Ironic commit: $IRONIC_HASH"
+        echo "Latest Sushy commit: $SUSHY_HASH"
+
+    - name: Check current hashes in requirements.cachito
+      id: current-hashes
+      run: |
+        # Extract current hashes from requirements.cachito
+        CURRENT_IRONIC=$(grep "ironic @ git+" requirements.cachito | sed 's/.*@//' || echo "")
+        CURRENT_SUSHY=$(grep "sushy @ git+" requirements.cachito | sed 's/.*@//' || echo "")
+
+        echo "current_ironic=$CURRENT_IRONIC" >> $GITHUB_OUTPUT
+        echo "current_sushy=$CURRENT_SUSHY" >> $GITHUB_OUTPUT
+
+        echo "Current Ironic hash: $CURRENT_IRONIC"
+        echo "Current Sushy hash: $CURRENT_SUSHY"
+
+    - name: Check if update is needed
+      id: check-update
+      run: |
+        NEED_UPDATE=false
+
+        if [ "${{ steps.get-commits.outputs.ironic_hash }}" != "${{ steps.current-hashes.outputs.current_ironic }}" ]; then
+          echo "Ironic hash changed"
+          NEED_UPDATE=true
+        fi
+
+        if [ "${{ steps.get-commits.outputs.sushy_hash }}" != "${{ steps.current-hashes.outputs.current_sushy }}" ]; then
+          echo "Sushy hash changed"
+          NEED_UPDATE=true
+        fi
+
+        if [ "${{ github.event.inputs.force_update }}" = "true" ]; then
+          echo "Force update requested"
+          NEED_UPDATE=true
+        fi
+
+        echo "need_update=$NEED_UPDATE" >> $GITHUB_OUTPUT
+
+    - name: Update requirements.cachito
+      if: steps.check-update.outputs.need_update == 'true'
+      run: |
+        # Create backup
+        cp requirements.cachito requirements.cachito.bak
+
+        # Update the file
+        sed -i "s|ironic @ git+https://github.com/${{ env.IRONIC_REPO }}@.*|ironic @ git+https://github.com/${{ env.IRONIC_REPO }}@${{ steps.get-commits.outputs.ironic_hash }}|" requirements.cachito
+        sed -i "s|sushy @ git+https://github.com/${{ env.SUSHY_REPO }}@.*|sushy @ git+https://github.com/${{ env.SUSHY_REPO }}@${{ steps.get-commits.outputs.sushy_hash }}|" requirements.cachito
+
+        echo "Updated requirements.cachito:"
+        cat requirements.cachito
+
+    - name: Get commit information
+      if: steps.check-update.outputs.need_update == 'true'
+      id: commit-info
+      run: |
+        # Get commit messages for the changelog
+        IRONIC_MSG=""
+        SUSHY_MSG=""
+
+        if [ "${{ steps.get-commits.outputs.ironic_hash }}" != "${{ steps.current-hashes.outputs.current_ironic }}" ]; then
+          IRONIC_MSG=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ env.IRONIC_REPO }}/commits/${{ steps.get-commits.outputs.ironic_hash }}" | \
+            jq -r '.commit.message' | head -n1)
+        fi
+
+        if [ "${{ steps.get-commits.outputs.sushy_hash }}" != "${{ steps.current-hashes.outputs.current_sushy }}" ]; then
+          SUSHY_MSG=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ env.SUSHY_REPO }}/commits/${{ steps.get-commits.outputs.sushy_hash }}" | \
+            jq -r '.commit.message' | head -n1)
+        fi
+
+        echo "ironic_msg=$IRONIC_MSG" >> $GITHUB_OUTPUT
+        echo "sushy_msg=$SUSHY_MSG" >> $GITHUB_OUTPUT
+
+    - name: Create Pull Request
+      if: steps.check-update.outputs.need_update == 'true'
+      uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: |
+          Update requirements.cachito with latest openshift forks commits
+
+          - Ironic: ${{ steps.get-commits.outputs.ironic_hash }}
+          - Sushy: ${{ steps.get-commits.outputs.sushy_hash }}
+        title: "chore: Update requirements.cachito with latest openshift forks commits"
+        body: |
+          ## Automated Requirements Update
+
+          This PR updates `requirements.cachito` with the latest commit hashes from openshift forks repositories.
+
+          ### Changes
+
+          #### Ironic (${{ env.IRONIC_REPO }})
+          - **Previous**: `${{ steps.current-hashes.outputs.current_ironic }}`
+          - **New**: `${{ steps.get-commits.outputs.ironic_hash }}`
+          - **Latest commit**: ${{ steps.commit-info.outputs.ironic_msg }}
+          - **Compare**: https://github.com/${{ env.IRONIC_REPO }}/compare/${{ steps.current-hashes.outputs.current_ironic }}..${{ steps.get-commits.outputs.ironic_hash }}
+
+          #### Sushy (${{ env.SUSHY_REPO }})
+          - **Previous**: `${{ steps.current-hashes.outputs.current_sushy }}`
+          - **New**: `${{ steps.get-commits.outputs.sushy_hash }}`
+          - **Latest commit**: ${{ steps.commit-info.outputs.sushy_msg }}
+          - **Compare**: https://github.com/${{ env.SUSHY_REPO }}/compare/${{ steps.current-hashes.outputs.current_sushy }}..${{ steps.get-commits.outputs.sushy_hash }}
+
+          ### Verification
+
+          Before merging, please ensure:
+          - The new commits don't introduce breaking changes
+          - The build completes successfully
+          - All tests pass
+
+          ---
+          *This PR was automatically created by the update-requirements workflow.*
+        branch: update-requirements-cachito
+        base: ${{ github.event.inputs.target_branch || 'main' }}
+        delete-branch: true
+        draft: false
+        labels: |
+          automated
+          dependencies
+          cachito
+
+    - name: Summary
+      run: |
+        if [ "${{ steps.check-update.outputs.need_update }}" = "true" ]; then
+          echo "Requirements updated and PR created"
+          echo "- Ironic: ${{ steps.get-commits.outputs.ironic_hash }}"
+          echo "- Sushy: ${{ steps.get-commits.outputs.sushy_hash }}"
+        else
+          echo "No updates needed - all hashes are current"
+        fi
