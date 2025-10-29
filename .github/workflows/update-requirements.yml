@@ -108,38 +108,12 @@ jobs:
     - name: Update requirements.cachito
       if: steps.check-update.outputs.need_update == 'true'
       run: |
-        # Create backup
-        cp requirements.cachito requirements.cachito.bak
-
         # Update the file
         sed -i "s|ironic @ git+https://github.com/${{ env.IRONIC_REPO }}@.*|ironic @ git+https://github.com/${{ env.IRONIC_REPO }}@${{ steps.get-commits.outputs.ironic_hash }}|" requirements.cachito
         sed -i "s|sushy @ git+https://github.com/${{ env.SUSHY_REPO }}@.*|sushy @ git+https://github.com/${{ env.SUSHY_REPO }}@${{ steps.get-commits.outputs.sushy_hash }}|" requirements.cachito
 
         echo "Updated requirements.cachito:"
         cat requirements.cachito
-
-    - name: Get commit information
-      if: steps.check-update.outputs.need_update == 'true'
-      id: commit-info
-      run: |
-        # Get commit messages for the changelog
-        IRONIC_MSG=""
-        SUSHY_MSG=""
-
-        if [ "${{ steps.get-commits.outputs.ironic_hash }}" != "${{ steps.current-hashes.outputs.current_ironic }}" ]; then
-          IRONIC_MSG=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ env.IRONIC_REPO }}/commits/${{ steps.get-commits.outputs.ironic_hash }}" | \
-            jq -r '.commit.message' | head -n1)
-        fi
-
-        if [ "${{ steps.get-commits.outputs.sushy_hash }}" != "${{ steps.current-hashes.outputs.current_sushy }}" ]; then
-          SUSHY_MSG=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ env.SUSHY_REPO }}/commits/${{ steps.get-commits.outputs.sushy_hash }}" | \
-            jq -r '.commit.message' | head -n1)
-        fi
-
-        echo "ironic_msg=$IRONIC_MSG" >> $GITHUB_OUTPUT
-        echo "sushy_msg=$SUSHY_MSG" >> $GITHUB_OUTPUT
 
     - name: Create Pull Request
       if: steps.check-update.outputs.need_update == 'true'
@@ -151,7 +125,7 @@ jobs:
 
           - Ironic: ${{ steps.get-commits.outputs.ironic_hash }}
           - Sushy: ${{ steps.get-commits.outputs.sushy_hash }}
-        title: "chore: Update requirements.cachito with latest openshift forks commits"
+        title: "NO-ISSUE: Update requirements.cachito with latest openshift forks commits"
         body: |
           ## Automated Requirements Update
 
@@ -162,13 +136,11 @@ jobs:
           #### Ironic (${{ env.IRONIC_REPO }})
           - **Previous**: `${{ steps.current-hashes.outputs.current_ironic }}`
           - **New**: `${{ steps.get-commits.outputs.ironic_hash }}`
-          - **Latest commit**: ${{ steps.commit-info.outputs.ironic_msg }}
           - **Compare**: https://github.com/${{ env.IRONIC_REPO }}/compare/${{ steps.current-hashes.outputs.current_ironic }}..${{ steps.get-commits.outputs.ironic_hash }}
 
           #### Sushy (${{ env.SUSHY_REPO }})
           - **Previous**: `${{ steps.current-hashes.outputs.current_sushy }}`
           - **New**: `${{ steps.get-commits.outputs.sushy_hash }}`
-          - **Latest commit**: ${{ steps.commit-info.outputs.sushy_msg }}
           - **Compare**: https://github.com/${{ env.SUSHY_REPO }}/compare/${{ steps.current-hashes.outputs.current_sushy }}..${{ steps.get-commits.outputs.sushy_hash }}
 
           ### Verification
